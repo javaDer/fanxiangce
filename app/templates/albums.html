@@ -2,11 +2,11 @@
 {% import "bootstrap/wtf.html" as wtf %}
 {% import "_macros.html" as macros %}
 
-{% block title %}{{ user.name }} - 翻相册{% endblock %}
+{% block title %}{{ user.name }} - 金沙物流照片墙{% endblock %}
 
 {% block page_content %}
 <ol class="breadcrumb">
-    <li><a href="{{ url_for('.index') }}">翻相册</a></li>
+    <li><a href="{{ url_for('.index') }}">金沙物流照片墙</a></li>
     <li class="active">{% if current_user == user %}我{% else %}{{ user.name }}{% endif %}的相册</li>
     <li><a href="{{ url_for('main.likes', username=user.username) }}">{% if current_user == user %}我{% else %}{{
         user.name }}{% endif %}的喜欢</a></li>

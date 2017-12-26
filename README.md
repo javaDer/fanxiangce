@@ -59,7 +59,7 @@ Now Go to http://127.0.0.1:5000/
 https://github.com/greyli/image-wall
 
 ## More details
-- fanxiangce is 翻相册's pinyin (翻: flip, 相册: album).
+- fanxiangce is 金沙物流照片墙's pinyin (翻: flip, 相册: album).
 - [fanxiangce.com](http://fanxiangce.com) now is only an old demo page.
 - More information can be found on ['Hello, Flask!'](https://zhuanlan.zhihu.com/flask) -- an column about Flask and Web development.
 

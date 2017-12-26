@@ -9,7 +9,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'very hard to guess'
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     SQLALCHEMY_TRACK_MODIFICATIONS = True
-    FANXIANGCE_MAIL_SUBJECT_PREFIX = u'[翻相册]'
+    FANXIANGCE_MAIL_SUBJECT_PREFIX = u'[金沙物流照片墙]'
     FANXIANGCE_MAIL_SENDER = 'mimi_19@sina.com'
     FANXIANGCE_ADMIN = 'withlihui@gmail.com' # os.environ.get('FANXIANG_ADMIN')
     UPLOADED_PHOTOS_DEST = os.getcwd() + '/app/static/img/'

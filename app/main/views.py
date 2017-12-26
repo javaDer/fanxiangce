@@ -4,17 +4,17 @@ import time
 import bleach
 import PIL
 import hashlib
-
+import requests
 from PIL import Image
 from flask import render_template, redirect, \
-    url_for, flash, abort, request, current_app, send_from_directory
+    url_for, flash, abort, request, current_app, send_from_directory, stream_with_context, Response
 from flask_login import login_required, current_user
 
 from . import main
 from .forms import NewAlbumForm, EditProfileAdminForm, \
     CommentForm, EditAlbumForm, AddPhotoForm, SettingForm
 from .. import db, photos
-from ..models import User, Role, Permission, Album, Photo, Comment,\
+from ..models import User, Role, Permission, Album, Photo, Comment, \
     Follow, LikePhoto, LikeAlbum, Message
 from ..decorators import admin_required, permission_required
 
@@ -23,7 +23,7 @@ from ..decorators import admin_required, permission_required
 def index():
     if current_user.is_authenticated:
         photos = current_user.followed_photos
-        photos  = [photo for photo in photos if photo.album.no_public == False]
+        photos = [photo for photo in photos if photo.album.no_public == False]
     else:
         photos = ""
     return render_template('index.html', photos=photos)
@@ -172,7 +172,7 @@ def albums(username):
 
     page = request.args.get('page', 1, type=int)
     pagination = user.albums.order_by(Album.timestamp.desc()).paginate(
-            page, per_page=current_app.config['FANXIANGCE_ALBUMS_PER_PAGE'], error_out=False)
+        page, per_page=current_app.config['FANXIANGCE_ALBUMS_PER_PAGE'], error_out=False)
     albums = pagination.items
 
     photo_count = sum([len(album.photos.all()) for album in albums])
@@ -205,13 +205,14 @@ def likes(username):
     user = User.query.filter_by(username=username).first()
     if user is None:
         abort(404)
-    if current_user!= user and not user.like_public:
-       return render_template('like_no_public.html', user=user)
+    if current_user != user and not user.like_public:
+        return render_template('like_no_public.html', user=user)
     page = request.args.get('page', 1, type=int)
     pagination = user.photo_likes.order_by(LikePhoto.timestamp.desc()).paginate(
         page, per_page=current_app.config['FANXIANGCE_PHOTO_LIKES_PER_PAGE'], error_out=False)
     photo_likes = pagination.items
-    photo_likes = [{'photo': like.like_photo, 'timestamp': like.timestamp, 'url_t':like.like_photo.url_t} for like in photo_likes]
+    photo_likes = [{'photo': like.like_photo, 'timestamp': like.timestamp, 'url_t': like.like_photo.url_t} for like in
+                   photo_likes]
     type = "photo"
     return render_template('likes.html', user=user, photo_likes=photo_likes,
                            pagination=pagination, type=type)
@@ -222,14 +223,14 @@ def album_likes(username):
     user = User.query.filter_by(username=username).first()
     if user is None:
         abort(404)
-    if current_user!= user and not user.like_public:
-       return render_template('like_no_public.html', user=user)
+    if current_user != user and not user.like_public:
+        return render_template('like_no_public.html', user=user)
     page = request.args.get('page', 1, type=int)
     pagination = user.album_likes.order_by(LikeAlbum.timestamp.desc()).paginate(
         page, per_page=current_app.config['FANXIANGCE_ALBUM_LIKES_PER_PAGE'], error_out=False)
     album_likes = pagination.items
     album_likes = [{'album': like.like_album, 'photo': like.like_album.photos,
-                    'timestamp': like.timestamp, 'cover':like.like_album.cover} for like in album_likes]
+                    'timestamp': like.timestamp, 'cover': like.like_album.cover} for like in album_likes]
     type = "album"
     return render_template('likes.html', user=user, album_likes=album_likes,
                            pagination=pagination, type=type)
@@ -286,7 +287,9 @@ def photo(id):
     if current_user.is_authenticated:
         user = User.query.filter_by(username=current_user.username).first()
         likes = user.photo_likes.order_by(LikePhoto.timestamp.desc()).all()
-        likes = [{'id': like.like_photo, 'timestamp': like.timestamp, 'url': like.like_photo.url, 'liked':like.photo_liked} for like in likes]
+        likes = [
+            {'id': like.like_photo, 'timestamp': like.timestamp, 'url': like.like_photo.url, 'liked': like.photo_liked}
+            for like in likes]
     else:
         likes = ""
 
@@ -401,6 +404,7 @@ def uploaded_file(filename):
     return send_from_directory(current_app.config['UPLOADED_PHOTOS_DEST'],
                                filename)
 
+
 # add different suffix for image
 img_suffix = {
     300: '_t',  # thumbnail
@@ -433,7 +437,7 @@ def save_image(files):
         file_url = photos.url(image)
         url_s = image_resize(image, 800)
         url_t = image_resize(image, 300)
-        images.append((file_url, url_s, url_t))
+        images.append((file_url, url_s, url_t, str(image)))
     return images
 
 
@@ -441,7 +445,7 @@ def save_image(files):
 @login_required
 def new_album():
     form = NewAlbumForm()
-    if form.validate_on_submit(): # current_user.can(Permission.CREATE_ALBUMS)
+    if form.validate_on_submit():  # current_user.can(Permission.CREATE_ALBUMS)
         if request.method == 'POST' and 'photo' in request.files:
             images = save_image(request.files.getlist('photo'))
 
@@ -470,13 +474,12 @@ def new_album():
 def add_photo(id):
     album = Album.query.get_or_404(id)
     form = AddPhotoForm()
-    if form.validate_on_submit(): # current_user.can(Permission.CREATE_ALBUMS)
+    if form.validate_on_submit():  # current_user.can(Permission.CREATE_ALBUMS)
         if request.method == 'POST' and 'photo' in request.files:
             images = save_image(request.files.getlist('photo'))
-
             for url in images:
                 photo = Photo(url=url[0], url_s=url[1], url_t=url[2],
-                              album=album, author=current_user._get_current_object())
+                              album=album, author=current_user._get_current_object(), filename=url[3])
                 db.session.add(photo)
             db.session.commit()
         flash(u'图片添加成功！', 'success')
@@ -552,7 +555,7 @@ def followed_by(username):
         return redirect(url_for('.index'))
     page = request.args.get('page', 1, type=int)
     pagination = user.followed.paginate(
-        page, per_page=10, #current_app.config['FLASKY_FOLLOWERS_PER_PAGE'],
+        page, per_page=10,  # current_app.config['FLASKY_FOLLOWERS_PER_PAGE'],
         error_out=False)
     follows = [{'user': item.followed, 'timestamp': item.timestamp}
                for item in pagination.items]
@@ -563,7 +566,7 @@ def followed_by(username):
 
 @main.route('/photo/like/<id>')
 @login_required
-#@permission_required(Permission.FOLLOW)
+# @permission_required(Permission.FOLLOW)
 def like_photo(id):
     photo = Photo.query.filter_by(id=id).first()
     album = photo.album
@@ -582,7 +585,7 @@ def like_photo(id):
 
 @main.route('/photo/unlike/<id>')
 @login_required
-#@permission_required(Permission.FOLLOW)
+# @permission_required(Permission.FOLLOW)
 def unlike_photo(id):
     # unlike photo in likes page.
     photo = Photo.query.filter_by(id=id).first()
@@ -597,7 +600,7 @@ def unlike_photo(id):
 
 @main.route('/album/like/<id>')
 @login_required
-#@permission_required(Permission.FOLLOW)
+# @permission_required(Permission.FOLLOW)
 def like_album(id):
     album = Album.query.filter_by(id=id).first()
     if album is None:
@@ -640,6 +643,15 @@ def delete_photo(id):
     db.session.commit()
     flash(u'删除成功。', 'success')
     return redirect(url_for('.album', id=album.id))
+
+    # images downloadimg
+
+
+@main.route('/photo/download_img/<id>')
+def download_img(id):
+    photo = Photo.query.filter_by(id=id).first()
+    dirpath = os.path.join('static/img')  # 这里是下在目录，从工程的根目录写起，比如你要下载static/js里面的js文件，这里就要写“static/js”
+    return send_from_directory(dirpath, photo.filename, as_attachment=True)  # as_attachment=True 一定要写，不然会变成打开，而不是下载
 
 
 @main.route('/delete/edit-photo/<id>')

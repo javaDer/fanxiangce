@@ -86,6 +86,7 @@ class Photo(db.Model):
     url_s = db.Column(db.String(64))
     url_t = db.Column(db.String(64))
     about = db.Column(db.Text)
+    filename = db.Column(db.String(64))
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     order = db.Column(db.Integer)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
